@@ -8,10 +8,10 @@ st.set_page_config(page_title="Inspector de Empalmes", layout="wide")
 st.title("🔍 Consulta de Consumo por Instalación")
 st.markdown("---")
 
-# 2. Carga de datos (Ahora usa consumos.csv)
+# 2. Carga de datos
 @st.cache_data
 def cargar_datos():
-    # Leemos el archivo nuevo
+    # Leemos el archivo consumos.csv
     df = pd.read_csv("consumos.csv", dtype=str)
     df.columns = df.columns.str.strip()
     return df
@@ -27,6 +27,7 @@ try:
         resultado = df[df['instalacion'].str.upper() == id_buscado]
 
         if not resultado.empty:
+            # Extraemos el valor limpio de la serie
             n_serie = resultado['serie'].values[0]
             st.success(f"✅ **Instalación encontrada**")
             st.info(f"**Número de Serie:** {n_serie}")
@@ -36,6 +37,7 @@ try:
             columnas_presentes = [c for c in columnas_meses if c in df.columns]
             
             if columnas_presentes:
+                # Convertir consumos a numérico para graficar
                 valores = pd.to_numeric(resultado[columnas_presentes].values.flatten(), errors='coerce')
                 
                 df_grafico = pd.DataFrame({
@@ -43,27 +45,42 @@ try:
                     "Consumo (kWh)": valores
                 })
 
-                # 5. Gráfico con ZOOM DESACTIVADO para móvil
-                fig = px.line(
+                # 5. Gráfico de Área SIN puntos y SIN etiquetas amontonadas
+                fig = px.area(
                     df_grafico, 
                     x="Mes", 
                     y="Consumo (kWh)", 
                     title=f"Historial de Consumo - {id_buscado}",
-                    markers=True
+                    template="plotly_white"
                 )
                 
-                # CONFIGURACIÓN ANTIZOOM:
+                # Configuración visual táctil y limpia
+                fig.update_traces(
+                    mode='lines',        # Solo líneas, sin puntos
+                    line_width=2,
+                    line_color='#007BFF', 
+                    fillcolor='rgba(0, 123, 255, 0.1)'
+                )
+
                 fig.update_layout(
-                    dragmode=False,          # Desactiva el arrastre para hacer zoom
-                    hovermode="x unified",   # Muestra el valor al pasar el dedo/mouse
-                    xaxis=dict(fixedrange=True), # Bloquea el zoom en el eje X
-                    yaxis=dict(fixedrange=True), # Bloquea el zoom en el eje Y
-                    margin=dict(l=10, r=10, t=50, b=10)
+                    height=400,          # Altura optimizada para móvil
+                    dragmode=False,      # Desactiva zoom por arrastre
+                    hovermode="x unified",
+                    xaxis=dict(
+                        fixedrange=True,      # Bloquea zoom manual
+                        showticklabels=False, # OCULTA "Mes 1", "Mes 2", etc.
+                        showgrid=False,       
+                        title=""              
+                    ),
+                    yaxis=dict(
+                        fixedrange=True,      # Bloquea zoom manual
+                        gridcolor="#f0f0f0",
+                        title="kWh"
+                    ),
+                    margin=dict(l=5, r=5, t=40, b=5) # Márgenes mínimos para ganar ancho
                 )
                 
-                fig.update_xaxes(nticks=12, tickangle=45)
-                
-                # Mostrar gráfico (el parámetro config desactiva la barra de herramientas molesta)
+                # Renderizar gráfico sin barra de herramientas
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             
             with st.expander("Ver detalle técnico"):
