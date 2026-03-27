@@ -12,7 +12,7 @@ st.markdown("---")
 @st.cache_data
 def cargar_datos():
     # Leemos todo como string para evitar errores con IDs que tienen letras (como C096752)
-    df = pd.read_csv("datos.csv", dtype=str)
+    df = pd.read_csv("consumos.csv", dtype=str)
     # Limpiamos posibles espacios en blanco en los nombres de columnas
     df.columns = df.columns.str.strip()
     return df
