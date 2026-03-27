@@ -34,65 +34,56 @@ try:
         ]
 
         if not resultado.empty:
-            # Si hay más de un resultado (raro, pero posible), tomamos el primero
-            datos_fila = resultado.iloc[0]
+            fila = resultado.iloc[0] # Tomamos la primera coincidencia
             
             st.success(f"✅ **Información Encontrada**")
             
-            # Mostramos ambos datos para confirmar
+            # Mostramos datos clave en tarjetas grandes
             col1, col2 = st.columns(2)
-            col1.metric("ID Instalación", datos_fila['instalacion'])
-            col2.metric("N° de Serie", datos_fila['serie'])
+            col1.metric("ID Instalación", fila['instalacion'])
+            col2.metric("N° de Serie", fila['serie'])
             
             # 4. Preparar datos (mes_1 a mes_64)
-            columnas_meses = [f"mes_{i}" for i in range(1, 65)]
-            columnas_presentes = [c for c in columnas_meses if c in df.columns]
+            columnas_totales = [f"mes_{i}" for i in range(1, 65)]
+            columnas_presentes = [c for c in columnas_totales if c in df.columns]
             
             if columnas_presentes:
+                # Convertir a numérico
                 valores = pd.to_numeric(resultado[columnas_presentes].values.flatten(), errors='coerce')
                 
-                df_grafico = pd.DataFrame({
+                df_completo = pd.DataFrame({
                     "Mes": [m.replace('_', ' ').title() for m in columnas_presentes],
-                    "Consumo (kWh)": valores
+                    "Consumo": valores
                 })
 
-                # 5. Gráfico de Área optimizado
-                fig = px.area(
-                    df_grafico, 
-                    x="Mes", 
-                    y="Consumo (kWh)", 
-                    title=f"Perfil de Consumo - Serie {datos_fila['serie']}",
-                    template="plotly_white"
+                # --- GRÁFICO 1: HISTÓRICO COMPLETO (64 meses) ---
+                st.subheader("📅 Histórico Completo (64 Meses)")
+                fig_hist = px.area(df_completo, x="Mes", y="Consumo", template="plotly_white")
+                fig_hist.update_traces(mode='lines', line_color='#007BFF', fillcolor='rgba(0, 123, 255, 0.1)')
+                fig_hist.update_layout(
+                    height=300, dragmode=False, hovermode="x unified",
+                    xaxis=dict(fixedrange=True, showticklabels=False, showgrid=False, title=""),
+                    yaxis=dict(fixedrange=True, title="kWh"),
+                    margin=dict(l=5, r=5, t=30, b=5)
                 )
-                
-                fig.update_traces(
-                    mode='lines',
-                    line_width=2,
-                    line_color='#007BFF', 
-                    fillcolor='rgba(0, 123, 255, 0.1)'
-                )
+                st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
 
-                fig.update_layout(
-                    height=400,
-                    dragmode=False,
-                    hovermode="x unified",
-                    xaxis=dict(
-                        fixedrange=True,
-                        showticklabels=False,
-                        showgrid=False,
-                        title=""
-                    ),
-                    yaxis=dict(
-                        fixedrange=True,
-                        gridcolor="#f0f0f0",
-                        title="kWh"
-                    ),
-                    margin=dict(l=5, r=5, t=40, b=5)
-                )
+                # --- GRÁFICO 2: ÚLTIMO AÑO (Detalle mes_53 a mes_64) ---
+                st.subheader("📈 Detalle Último Año")
+                # Filtramos las últimas 12 columnas (si existen)
+                ultimos_12 = df_completo.tail(12)
                 
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                fig_det = px.line(ultimos_12, x="Mes", y="Consumo", markers=True, template="plotly_white")
+                fig_det.update_traces(line_color='#28A745', line_width=3, marker=dict(size=8))
+                fig_det.update_layout(
+                    height=350, dragmode=False, hovermode="x unified",
+                    xaxis=dict(fixedrange=True, tickangle=45, title=""),
+                    yaxis=dict(fixedrange=True, title="kWh"),
+                    margin=dict(l=5, r=5, t=30, b=5)
+                )
+                st.plotly_chart(fig_det, use_container_width=True, config={'displayModeBar': False})
             
-            with st.expander("Ver detalle técnico completo"):
+            with st.expander("Ver tabla de datos brutos"):
                 st.write(resultado)
         else:
             st.warning(f"⚠️ No se encontró registro para '{busqueda}'.")
