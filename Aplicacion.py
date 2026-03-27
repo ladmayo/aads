@@ -11,11 +11,26 @@ st.markdown("---")
 # 2. Carga de datos optimizada
 @st.cache_data
 def cargar_datos():
-    # Leemos todo como string para evitar errores con IDs que tienen letras (como C096752)
-    df = pd.read_csv("consumos.csv", dtype=str)
-    # Limpiamos posibles espacios en blanco en los nombres de columnas
-    df.columns = df.columns.str.strip()
-    return df
+    import os
+    archivo = "consumos.csv"
+    
+    # Verificación de seguridad
+    if not os.path.exists(archivo):
+        raise FileNotFoundError(f"El archivo {archivo} no existe en el servidor.")
+        
+    if os.path.getsize(archivo) == 0:
+        raise ValueError("El archivo 'datos.csv' está vacío (0 bytes).")
+
+    # Intentamos leer con diferentes configuraciones
+    try:
+        # Forzamos la lectura ignorando errores de líneas mal formadas
+        df = pd.read_csv(archivo, sep=',', on_bad_lines='skip', engine='python', dtype=str)
+        if df.empty:
+            raise ValueError("El DataFrame resultó vacío después de leer el CSV.")
+        return df
+    except Exception as e:
+        # Si falla el anterior, intentamos una lectura ultra-básica
+        return pd.read_csv(archivo, dtype=str)
 
 try:
     df = cargar_datos()
