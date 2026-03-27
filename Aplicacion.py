@@ -8,54 +8,34 @@ st.set_page_config(page_title="Inspector de Empalmes", layout="wide")
 st.title("🔍 Consulta de Consumo por Instalación")
 st.markdown("---")
 
-# 2. Carga de datos optimizada
+# 2. Carga de datos (Ahora usa consumos.csv)
 @st.cache_data
 def cargar_datos():
-    import os
-    archivo = "consumos.csv"
-    
-    # Verificación de seguridad
-    if not os.path.exists(archivo):
-        raise FileNotFoundError(f"El archivo {archivo} no existe en el servidor.")
-        
-    if os.path.getsize(archivo) == 0:
-        raise ValueError("El archivo 'datos.csv' está vacío (0 bytes).")
-
-    # Intentamos leer con diferentes configuraciones
-    try:
-        # Forzamos la lectura ignorando errores de líneas mal formadas
-        df = pd.read_csv(archivo, sep=',', on_bad_lines='skip', engine='python', dtype=str)
-        if df.empty:
-            raise ValueError("El DataFrame resultó vacío después de leer el CSV.")
-        return df
-    except Exception as e:
-        # Si falla el anterior, intentamos una lectura ultra-básica
-        return pd.read_csv(archivo, dtype=str)
+    # Leemos el archivo nuevo
+    df = pd.read_csv("consumos.csv", dtype=str)
+    df.columns = df.columns.str.strip()
+    return df
 
 try:
     df = cargar_datos()
 
     # 3. Buscador
-    busqueda = st.text_input("Ingrese el número de Instalación (ID):", placeholder="Ej: C096752 o 102226007")
+    busqueda = st.text_input("Ingrese el número de Instalación (ID):", placeholder="Ej: C096752")
 
     if busqueda:
-        # Limpiar espacios del usuario y buscar coincidencia exacta sin importar mayúsculas
         id_buscado = busqueda.strip().upper()
         resultado = df[df['instalacion'].str.upper() == id_buscado]
 
         if not resultado.empty:
-            # Mostrar la serie
             n_serie = resultado['serie'].values[0]
             st.success(f"✅ **Instalación encontrada**")
             st.info(f"**Número de Serie:** {n_serie}")
             
-            # 4. Preparar datos de los 64 meses
+            # 4. Preparar datos (mes_1 a mes_64)
             columnas_meses = [f"mes_{i}" for i in range(1, 65)]
-            # Solo usamos las columnas que realmente existan en el CSV
             columnas_presentes = [c for c in columnas_meses if c in df.columns]
             
             if columnas_presentes:
-                # Convertimos los consumos a números para poder graficar
                 valores = pd.to_numeric(resultado[columnas_presentes].values.flatten(), errors='coerce')
                 
                 df_grafico = pd.DataFrame({
@@ -63,31 +43,33 @@ try:
                     "Consumo (kWh)": valores
                 })
 
-                # 5. Gráfico interactivo
+                # 5. Gráfico con ZOOM DESACTIVADO para móvil
                 fig = px.line(
                     df_grafico, 
                     x="Mes", 
                     y="Consumo (kWh)", 
-                    title=f"Historial de Consumo - Instalación {id_buscado}",
-                    markers=True,
-                    line_shape="linear"
+                    title=f"Historial de Consumo - {id_buscado}",
+                    markers=True
                 )
                 
-                # Mejoras visuales para el celular
-                fig.update_xaxes(nticks=15, tickangle=45)
+                # CONFIGURACIÓN ANTIZOOM:
                 fig.update_layout(
-                    hovermode="x unified",
-                    margin=dict(l=20, r=20, t=50, b=20)
+                    dragmode=False,          # Desactiva el arrastre para hacer zoom
+                    hovermode="x unified",   # Muestra el valor al pasar el dedo/mouse
+                    xaxis=dict(fixedrange=True), # Bloquea el zoom en el eje X
+                    yaxis=dict(fixedrange=True), # Bloquea el zoom en el eje Y
+                    margin=dict(l=10, r=10, t=50, b=10)
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                fig.update_xaxes(nticks=12, tickangle=45)
+                
+                # Mostrar gráfico (el parámetro config desactiva la barra de herramientas molesta)
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             
-            # Mostrar tabla completa si se desea
-            with st.expander("Ver detalle técnico completo"):
-                st.write(resultado)
+            with st.expander("Ver detalle técnico"):
+                st.dataframe(resultado)
         else:
-            st.warning(f"⚠️ No se encontró la instalación '{busqueda}'. Verifique si incluye letras (ej: C096752).")
+            st.warning(f"⚠️ No se encontró la instalación '{busqueda}'.")
 
 except Exception as e:
-    st.error(f"❌ Error al cargar la aplicación: {e}")
-    st.info("Asegúrate de que el archivo se llame 'datos.csv' y esté en la raíz de tu GitHub.")
+    st.error(f"❌ Error: {e}")
