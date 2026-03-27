@@ -11,7 +11,7 @@ st.markdown("---")
 # 2. Función optimizada para cargar datos
 @st.cache_data
 def cargar_datos():
-    return pd.read_csv("datos.csv")
+    return pd.read_csv("consumos.csv")
 
 try:
     df = cargar_datos()
